@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dataset>
+    <pages>
+        <uid>1</uid>
+        <pid>0</pid>
+        <title>Root</title>
+        <deleted>0</deleted>
+        <is_siteroot>1</is_siteroot>
+    </pages>
+    <sys_template>
+        <uid>1</uid>
+        <pid>1</pid>
+        <title>Root</title>
+        <root>1</root>
+        <clear>3</clear>
+        <config>
+page = PAGE
+page {
+    typeNum = 0
+
+    config {
+        disableAllHeaderCode = 1
+    }
+    5 = TEXT
+    5.value = foo
+}
+        </config>
+    </sys_template>
+</dataset>
