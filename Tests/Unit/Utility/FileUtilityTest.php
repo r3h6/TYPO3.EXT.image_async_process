@@ -27,27 +27,55 @@ class FileUtilityTest extends \TYPO3\CMS\Core\Tests\UnitTestCase
      * @test
      * @dataProvider calculateDimensionsDataProvider
      */
-    public function calculateDimensions($file, $configuration, $expected)
+    public function calculateDimensions(array $expected, array $configuration)
     {
-        $this->assertEquals($expected, FileUtility::calculateDimensions($file, $configuration));
+        $fileMock = $this->getMock('TYPO3\\CMS\\Core\\Resource\\File', ['getProperty'], [], '', false);
+
+        $fileMock
+            ->expects($this->at(0))
+            ->method('getProperty')
+            ->with('width')
+            ->will($this->returnValue(400));
+
+        $fileMock
+            ->expects($this->at(1))
+            ->method('getProperty')
+            ->with('height')
+            ->will($this->returnValue(300));
+
+        $this->assertEquals($expected, FileUtility::calculateDimensions($fileMock, $configuration));
     }
 
     public function calculateDimensionsDataProvider()
     {
-        $file = $this->getMock('TYPO3\\CMS\\Core\\Resource\\File', ['getProperty'], [], '', false);
-        // $file
-        //     ->expects($this->any())
-        //     ->method('getProperty')
-        //     ->with($this->equalTo('width'))
-        //     ->will($this->returnValue(1200));
-        // $file
-        //     ->expects($this->any())
-        //     ->method('getProperty')
-        //     ->with($this->equalTo('width'))
-        //     ->will($this->returnValue(1200));
-
         return [
-            [$file, ['width' => '200', 'height' => '100'], ['width' => 200, 'height' => 100]]
+            [['width' => 400, 'height' => 300], []],
+            [['width' => 100, 'height' => 75],  ['width' => '100']],
+            [['width' => 134, 'height' => 100], ['height' => '100']],
+            [['width' => 200, 'height' => 200], ['width' => '200', 'height' => '200']],
+            [['width' => 200, 'height' => 200], ['width' => '200c', 'height' => '200']],
+            [['width' => 200, 'height' => 200], ['width' => '200', 'height' => '200c']],
+            [['width' => 200, 'height' => 200], ['width' => '200c', 'height' => '200c']],
+            [['width' => 100, 'height' => 75],  ['maxWidth' => '100']],
+            [['width' => 134, 'height' => 100], ['maxHeight' => '100']],
+            [['width' => 100, 'height' => 75],  ['maxWidth' => '100', 'maxHeight' => '100']],
+            [['width' => 267, 'height' => 200], ['minWidth' => '200', 'minHeight' => '200', 'maxWidth' => '100', 'maxHeight' => '100']],
+            [['width' => 100, 'height' => 75],  ['width' => "200", 'maxWidth' => "100", 'maxHeight' => "100"]],
+            [['width' => 100, 'height' => 75],  ['width' => '200', 'height' => '200', 'maxWidth' => '100', 'maxHeight' => '100']],
+            [['width' => 100, 'height' => 75],  ['width' => '200c', 'height' => '200c', 'maxWidth' => '100', 'maxHeight' => '100']],
+            [['width' => 200, 'height' => 150], ['width' => "200", 'minWidth' => "100", 'minHeight' => "100"]],
+            [['width' => 200, 'height' => 200], ['width' => "200", 'height' => "200", 'minWidth' => "100", 'minHeight' => "100"]],
+            [['width' => 200, 'height' => 200], ['width' => "200c", 'height' => "200c", 'minWidth' => "100", 'minHeight' => "100"]],
         ];
     }
 }
+
+
+
+
+
+
+
+
+
+

@@ -11,8 +11,8 @@
  ***************************************************************/
 
 $EM_CONF[$_EXTKEY] = array(
-	'title' => 'Image asynchronous process',
-	'description' => 'Speeds up your website delivery time.',
+	'title' => 'Asynchronous image processing',
+	'description' => 'Speeds up rendering time for a page with many pictures.',
 	'category' => 'fe',
 	'author' => 'R3H6',
 	'author_email' => 'r3h6@outlook.com',
@@ -21,7 +21,7 @@ $EM_CONF[$_EXTKEY] = array(
 	'uploadfolder' => '0',
 	'createDirs' => '',
 	'clearCacheOnLoad' => 0,
-	'version' => '0.0.1',
+	'version' => '1.0.0',
 	'constraints' => array(
 		'depends' => array(
 			'typo3' => '7.6.0-8.99.99',

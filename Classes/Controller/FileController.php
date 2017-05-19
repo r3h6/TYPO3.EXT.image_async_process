@@ -16,17 +16,20 @@ class FileController
 {
     public function readAction(ServerRequestInterface $request, ResponseInterface $response)
     {
-        $cacheIdentifier = sha1(ltrim($_SERVER['REQUEST_URI'], '/'));
+        $url = $_SERVER['REQUEST_URI'];
+        $cacheIdentifier = sha1(ltrim($url, '/'));
         $cacheInstance = $this->getCacheInstance();
 
         try {
             $data = $cacheInstance->get($cacheIdentifier);
         } catch (\RuntimeException $exception) {
+            $this->getLogger()->error('Invalid cache for ' . $url);
             return $response->withStatus(404, 'Invalid cache');
         }
 
         $file = $this->getFileRepository()->findByIdentifier($data['file']);
         if ($file === null) {
+            $this->getLogger()->error('File not found for ' . $url);
             return $response->withStatus(404, 'File not found');
         }
 
@@ -36,7 +39,8 @@ class FileController
         $filePath = PATH_site . $processedFile->getPublicUrl();
 
         if (!file_exists($filePath)) {
-            return $response->withStatus(404, 'File not processed');
+            $this->getLogger()->error('Processed file does not exists ' . $filePath);
+            return $response->withStatus(404, 'Processed file does not exist');
         }
 
         $response = $response->withHeader('Content-Type', (string) $processedFile->getMimeType());
@@ -60,5 +64,15 @@ class FileController
     protected function getFileRepository()
     {
         return GeneralUtility::makeInstance(\TYPO3\CMS\Core\Resource\FileRepository::class);
+    }
+
+    /**
+     * Get class logger
+     *
+     * @return TYPO3\CMS\Core\Log\Logger
+     */
+    protected function getLogger ()
+    {
+        return \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TYPO3\CMS\Core\Log\LogManager::class)->getLogger(__CLASS__);
     }
 }
