@@ -4,13 +4,10 @@ namespace R3H6\ImageAsyncProcess\Utility;
 
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Resource\FileInterface;
+use TYPO3\CMS\Core\Imaging\GraphicalFunctions;
 
 class FileUtility
 {
-    const MODE_MAX = 'max';
-    const MODE_MIN = 'min';
-    const MODE_EXACT = 'exact';
-
     protected static function parse($size)
     {
         if (preg_match('/(?P<size>[0-9]+)(?P<modifier>c|m)?(?P<offset>\+|\-[0-9]+)?/i', $size, $matches)) {
@@ -18,80 +15,130 @@ class FileUtility
         }
     }
 
+    protected static function resizeByWidth(&$dimensions, $width, $round = false)
+    {
+        $factor =  $width / $dimensions['width'];
+        if ($round) {
+            $dimensions['width'] = round($factor * $dimensions['width']);
+            $dimensions['height'] = round($factor * $dimensions['height']);
+        } else {
+            $dimensions['width'] = ceil($factor * $dimensions['width']);
+            $dimensions['height'] = ceil($factor * $dimensions['height']);
+        }
+    }
+
+    protected static function resizeByHeight(&$dimensions, $height, $round = false)
+    {
+        $factor =  $height / $dimensions['height'];
+        if ($round) {
+            $dimensions['width'] = round($factor * $dimensions['width']);
+            $dimensions['height'] = round($factor * $dimensions['height']);
+        } else {
+            $dimensions['width'] = ceil($factor * $dimensions['width']);
+            $dimensions['height'] = ceil($factor * $dimensions['height']);
+        }
+    }
+
     public static function calculateDimensions(FileInterface $file, array $configuration)
     {
-        $mode = static::MODE_MAX;
-        $fileWidth = (int) $file->getProperty('width');
-        $fileHeight = (int) $file->getProperty('height');
-        $format = $fileWidth / $fileHeight; // Square: x = 1 , Landscape: x > 1, Portrait: x < 1
-        $boxWidth = $fileWidth;
-        $boxHeight = $fileHeight;
+        $scaleUp = false;
+        $width = null;
+        $height = null;
+        $maxWidth = null;
+        $maxHeight = null;
+        $minWidth = null;
+        $minHeight = null;
+        $cropWidth = false;
+        $cropHeight = false;
+
+        $dimensions = [
+            'width' => $file->getProperty('width'),
+            'height' => $file->getProperty('height'),
+        ];
 
         if (isset($configuration['width'])) {
             $widthParts = static::parse($configuration['width']);
-            $boxWidth = (int) $widthParts['size'];
+            $width = (int) $widthParts['size'];
             if ($widthParts['modifier'] === 'm') {
-                $configuration['maxWidth'] = $widthParts['size'];
+                if ($width < $dimensions['width']) {
+                    static::resizeByWidth($dimensions, $width);
+                }
             } elseif ($widthParts['modifier'] === 'c') {
-                $mode = static::MODE_EXACT;
+                $cropWidth = true;
+                static::resizeByWidth($dimensions, $width);
+            } else {
+                static::resizeByWidth($dimensions, $width);
             }
         }
 
         if (isset($configuration['height'])) {
             $heightParts = static::parse($configuration['height']);
-            $boxHeight = (int) $heightParts['size'];
+            $height = (int) $heightParts['size'];
             if ($heightParts['modifier'] === 'm') {
-                $configuration['maxHeight'] = $heightParts['size'];
+                if ($height < $dimensions['height']) {
+                    static::resizeByHeight($dimensions, $height);
+                }
             } elseif ($heightParts['modifier'] === 'c') {
-                $mode = static::MODE_EXACT;
+                $cropHeight = true;
+                if ($cropWidth) {
+                    $dimensions['height'] = $height;
+                } else {
+                    static::resizeByHeight($dimensions, $height);
+                }
             } else {
-                $mode = isset($widthParts) ? static::MODE_EXACT: static::MODE_MAX;
+                if ($width !== null) {
+                    $dimensions['height'] = $height;
+                } else {
+                    static::resizeByHeight($dimensions, $height);
+                }
             }
         }
 
         if (isset($configuration['maxWidth'])) {
             $maxWidth = (int) $configuration['maxWidth'];
-            $mode = static::MODE_MAX;
-            $boxWidth = min($boxWidth, $maxWidth);
-        }
-        if (isset($configuration['minWidth'])) {
-            $minWidth = (int) $configuration['minWidth'];
-            if ($minWidth > $boxWidth) {
-                $mode = static::MODE_MIN;
+            if ($maxWidth < $dimensions['width']) {
+                static::resizeByWidth($dimensions, $maxWidth, ($cropWidth || $cropHeight));
             }
-            $boxWidth = max($boxWidth, $minWidth);
         }
         if (isset($configuration['maxHeight'])) {
             $maxHeight = (int) $configuration['maxHeight'];
-            $mode = static::MODE_MAX;
-            $boxHeight = min($boxHeight, $maxHeight);
+            if ($maxHeight < $dimensions['height']) {
+                static::resizeByHeight($dimensions, $maxHeight, ($cropWidth || $cropHeight));
+            }
         }
+
+        $scaleUp = ($width || $height || $maxWidth || $maxHeight);
+
+        if (isset($configuration['minWidth'])) {
+            $minWidth = (int) $configuration['minWidth'];
+            if ($minWidth > $dimensions['width']) {
+                if ($height) {
+                    $dimensions['width'] = $minWidth;
+                } else if ($scaleUp) {
+                    static::resizeByWidth($dimensions, $minWidth, true);
+                }
+            }
+        }
+
         if (isset($configuration['minHeight'])) {
             $minHeight = (int) $configuration['minHeight'];
-            if ($minHeight > $boxHeight) {
-                $mode = static::MODE_MIN;
+            if ($minHeight > $dimensions['height']) {
+                if ($width) {
+                    $dimensions['height'] = $minHeight;
+                } else if ($scaleUp) {
+                    static::resizeByHeight($dimensions, $minHeight, true);
+                }
             }
-            $boxHeight = max($boxHeight, $minHeight);
         }
 
-        $boxFormat = $boxWidth / $boxHeight;
-
-        if ($mode === static::MODE_MAX) {
-            $factor = ($format > $boxFormat) ? $boxWidth / $fileWidth: $boxHeight / $fileHeight;
-            $newWidth = ceil($factor * $fileWidth);
-            $newHeight = ceil($factor * $fileHeight);
-        } else if ($mode === static::MODE_MIN) {
-            $factor = ($format < $boxFormat) ? $boxWidth / $fileWidth: $boxHeight / $fileHeight;
-            $newWidth = ceil($factor * $fileWidth);
-            $newHeight = ceil($factor * $fileHeight);
-        } else {
-            $newWidth = $boxWidth;
-            $newHeight = $boxHeight;
+        if ($cropWidth && $width < $dimensions['width']) {
+            $dimensions['width'] = $width;
         }
 
-        return [
-            'width' => $newWidth,
-            'height' => $newHeight,
-        ];
+        if ($cropHeight && $height < $dimensions['height']) {
+            $dimensions['height'] = $height;
+        }
+
+        return $dimensions;
     }
 }
