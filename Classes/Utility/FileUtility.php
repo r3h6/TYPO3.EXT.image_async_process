@@ -68,8 +68,8 @@ class FileUtility
         $cropHeight = false;
 
         $dimensions = [
-            'width' => $file->getProperty('width'),
-            'height' => $file->getProperty('height'),
+            'width' => (int) $file->getProperty('width'),
+            'height' => (int) $file->getProperty('height'),
         ];
 
         if (isset($configuration['width'])) {

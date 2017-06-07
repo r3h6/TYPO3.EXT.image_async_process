@@ -42,19 +42,19 @@ class FileController
         $cacheIdentifier = sha1(ltrim($url, '/'));
         $cacheInstance = $this->getCacheInstance();
 
-        $this->getLogger()->debug('Process ' . $url);
+        // $this->getLogger()->debug('Process ' . $url);
 
         try {
             $data = $cacheInstance->get($cacheIdentifier);
         } catch (\RuntimeException $exception) {
-            $this->getLogger()->error('Invalid cache for ' . $url);
+            $this->getLogger()->error('Invalid cache for ' . $url, ['cacheIdentifier' => $cacheIdentifier]);
             GeneralUtility::sysLog('Invalid cache for ' . $url, self::EXT_KEY, GeneralUtility::SYSLOG_SEVERITY_ERROR);
             return $response->withStatus(404, 'Invalid cache');
         }
 
         $file = $this->getFileRepository()->findByIdentifier($data['file']);
         if ($file === null) {
-            $this->getLogger()->error('File not found for ' . $url);
+            $this->getLogger()->error('File not found for ' . $url, ['data' => $data]);
             GeneralUtility::sysLog('File not found for ' . $url, self::EXT_KEY, GeneralUtility::SYSLOG_SEVERITY_ERROR);
             return $response->withStatus(404, 'File not found');
         }
@@ -65,13 +65,13 @@ class FileController
         $filePath = PATH_site . $processedFile->getPublicUrl();
 
         if (!file_exists($filePath)) {
-            $this->getLogger()->error('Processed file does not exists ' . $filePath . ' ' . $processedFile->usesOriginalFile());
+            $this->getLogger()->error('Processed file does not exists ' . $filePath, ['data' => $data]);
             GeneralUtility::sysLog('Processed file does not exists ' . $filePath, self::EXT_KEY, GeneralUtility::SYSLOG_SEVERITY_ERROR);
             return $response->withStatus(404, 'Processed file does not exist');
         }
 
-        if ($processedFile->getProperty('width') !== $data['calculatedSize']['width']
-            || $processedFile->getProperty('height') !== $data['calculatedSize']['height']
+        if ((int) $processedFile->getProperty('width') !== (int) $data['calculatedSize']['width']
+            || (int) $processedFile->getProperty('height') !== (int) $data['calculatedSize']['height']
         ) {
             $this->getLogger()->debug('Precalculated wrong size', [
                 'processedFile' => [

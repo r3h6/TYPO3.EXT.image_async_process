@@ -32,7 +32,18 @@ class FileProcessingSlot
      */
     protected $cacheInstance;
 
-    public function useNullProcessedFile($fileProcessingService, $driver, \TYPO3\CMS\Core\Resource\ProcessedFile $processedFile, FileInterface $file, $taskType, $configuration)
+    /**
+     * Cache processing information for later processing and mark file as processed.
+     *
+     * @param  \TYPO3\CMS\Core\Resource\Service\FileProcessingService $fileProcessingService
+     * @param  \TYPO3\CMS\Core\Resource\Driver\DriverInterface        $driver
+     * @param  \TYPO3\CMS\Core\Resource\ProcessedFile                 $processedFile
+     * @param  FileInterface                                          $file
+     * @param  string                                                 $taskType
+     * @param  array                                                  $configuration
+     * @return void
+     */
+    public function useNullProcessedFile(\TYPO3\CMS\Core\Resource\Service\FileProcessingService $fileProcessingService, \TYPO3\CMS\Core\Resource\Driver\DriverInterface $driver, \TYPO3\CMS\Core\Resource\ProcessedFile $processedFile, FileInterface $file, $taskType, array $configuration)
     {
         $size = FileUtility::calculateDimensions($file, $configuration);
 
@@ -42,11 +53,15 @@ class FileProcessingSlot
         $processedFile->updateProperties($size);
         $cacheIdentifier = sha1($processedFile->getPublicUrl());
 
-        $this->cacheInstance->set($cacheIdentifier, [
-            'configuration' => $configuration,
-            'taskType' => $taskType,
-            'file' => $file->getUid(),
-            'calculatedSize' => $size,
-        ]);
+        if ((int) $file->getProperty('width') === (int) $size['width'] && (int) $file->getProperty('height') === (int) $size['height']) {
+            $processedFile->setUsesOriginalFile();
+        } else {
+            $this->cacheInstance->set($cacheIdentifier, [
+                'configuration' => $configuration,
+                'taskType' => $taskType,
+                'file' => $file->getUid(),
+                'calculatedSize' => $size,
+            ]);
+        }
     }
 }
